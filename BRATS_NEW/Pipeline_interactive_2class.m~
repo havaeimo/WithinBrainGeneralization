@@ -1,0 +1,295 @@
+clear all
+close all
+global T1C T2 T1 FLAIR
+
+%% define paths and parameters
+Nb_Selected = 500;
+k=3;
+Nb_healthy = 500;
+downsamplerate = 20;
+results_path_root ='/home/local/USHERBROOKE/havm2701/data/RESULTS/within_brain_classification/BRATS_2015_Testpip/';
+%new_results_path_root ='/home/local/USHERBROOKE/havm2701/data/RESULTS/within_brain_classification/BRATS_2013_LEADERBOARD_MASK2/';
+main_result_dir = results_path_root;
+%results_path_root = '/Users/uoft/Dropbox/PhD/BratsAnalysis/CHALLENGE2013_KNN_mha/';
+ type = 'HGG';
+ name='brats_tcia_pat401_0001';
+Brain_path = ['/home/local/USHERBROOKE/havm2701/data/Data/BRATS/BRATS2015/BRATS_BRAINS_2015_preprocessed/BRATS2014_training','/',type,'/',name];
+% Brain_path = ['/Volumes/FreeAgent Drive/Research UdeSh/BRATS-2/Image_Data/',type,'/',name];
+ %%%mask_path = ['N:\User\Research\Results\BRATS-2_KNN_ENDAUGUST\',type,'\',name]
+mask_path = [results_path_root,'/',type,'/',name] 
+ if exist(results_path_root,'dir')==0
+    mkdir(results_path_root)
+end
+result_path_brain = [results_path_root,type,'/', name];
+if exist(result_path_brain,'dir')==0
+    mkdir(result_path_brain)
+end
+
+
+classifier_name = 'kNN'
+knn_result_save_dir =[main_result_dir,classifier_name,'',filesep,''];
+if exist(knn_result_save_dir,'dir')==0
+    mkdir(knn_result_save_dir)
+end
+boykov_result_save_dir =  [main_result_dir,'boykov',filesep,'nodenoising',filesep,''];
+if exist(boykov_result_save_dir,'dir')==0
+    mkdir(boykov_result_save_dir)
+end
+boykov_denoised_result_save_dir =  [main_result_dir,'boykov',filesep,'Denoised',filesep,''];
+if exist(boykov_denoised_result_save_dir,'dir')==0
+    mkdir(boykov_denoised_result_save_dir)
+end
+
+%% load modalities
+compute_statistics = 0;
+[T1C, T2, FLAIR, truth,T1,info,flair_name] = load_modalities(Brain_path,compute_statistics);
+[height width depth] = size(T1C);
+T1C = double(T1C);
+T2 = double(T2);
+T1 = double(T1);
+
+%% creating the mask
+%MASK = make_mask(T1C, T2, T1);
+% or load the mask from a path (future work)
+%mask_path = result_path_brain;
+%MASK = load_mask(mask_path);
+MASK = zeros(size(T1C));
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%MAKE MASK%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ display('***** Make New Mask*****')
+[height,width,depth] = size(T1C);
+
+while 1
+    %MASK_slice = imread('Mask_HG14_slice80.png');
+    while 1
+        fig2=figure();
+         d=input('press "1" to select healthy region');
+        if d==1
+            sliceH = input('enter slice number for healthy (from image J):');
+%             sliceH = depth - sliceH;
+            %modality = input('Enter modality to slelect from: ','s');
+            modality = 'FLAIR';
+            view = input('Enter view to slelect from: ');
+            imshow_modality(sliceH,modality,view);
+            
+            roi= roipoly;
+            if view ~= 3 
+                roi = flipud(roi)';
+            elseif view ==3
+                roi = roi';
+            end
+            MASK_sliceH = roi;
+            MASK_sliceH = 10 * MASK_sliceH;
+            imshow(roi);
+            roi_index = find(roi>0);
+
+            if view ==1
+            MASK_sliceH =MASK(sliceH,:,:);
+            MASK_sliceH(roi_index)= 10;
+            MASK(sliceH,:,:) = MASK_sliceH;
+            elseif view ==2
+            MASK_sliceH =MASK(:,sliceH,:);
+            MASK_sliceH(roi_index)= 10;
+            MASK(:,sliceH,:) = MASK_sliceH;
+            elseif view == 3
+            MASK_sliceH =MASK(:,:,sliceH);
+            MASK_sliceH(roi_index)= 10;
+            MASK(:,:,sliceH) = MASK_sliceH;
+            end
+        else 
+            break
+        end                
+    end
+    while 1
+        d=input('press "1" to select edema region');
+        if d==1
+            sliceE = input('enter slice number for edema (from image J):');
+%             sliceE = depth - sliceE;
+            %modality = input('Enter modality to slelect from: ','s');
+            modality = 'FLAIR';
+            view = input('Enter view to slelect from: ');
+            imshow_modality(sliceE,modality,view);
+             roi= roipoly;
+            if view ~= 3 
+                roi = flipud(roi)';
+            elseif view ==3
+                roi = roi';
+            end
+            imshow(roi);
+            roi_index = find(roi>0);
+
+            if view ==1
+            MASK_sliceE =MASK(sliceE,:,:);
+            MASK_sliceE(roi_index)= 2;
+            MASK(sliceE,:,:) = MASK_sliceE;
+            elseif view ==2
+            MASK_sliceE =MASK(:,sliceE,:);
+            MASK_sliceE(roi_index)= 2;
+            MASK(:,sliceE,:) = MASK_sliceE;
+            elseif view == 3
+            MASK_sliceE =MASK(:,:,sliceE);
+            MASK_sliceE(roi_index)= 2;
+            MASK(:,:,sliceE) = MASK_sliceE;
+            end
+        else 
+            break
+        end                
+    end
+
+   
+
+    dd=input('press "1" to continue selecting ROI');
+     if dd~=1
+          break
+     end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ MASK = double(MASK);
+
+
+
+%% save Mask
+% save the mha file for the mask
+MASK = uint16(MASK);
+mha_MASK_path = [result_path_brain,'/','MASK_',type,'_',name,'.mha'];
+writemetaimagefile(mha_MASK_path, MASK, info.PixelDimensions,info.Offset);
+
+%% Detect the borders of the brain
+
+[ymin,ymax,xmin,xmax,zmin,zmax] = find_boundingbox_borders(T1C);
+
+
+ 
+disp('***********************************')
+disp(['Processing brain ',type,'_',name, ' with k = ', num2str(k)])
+disp('***********************************')
+
+
+%%
+T1C = T1C(xmin:xmax , ymin:ymax , zmin:zmax);
+T2 = T2(xmin:xmax , ymin:ymax , zmin:zmax);
+T1 = T1(xmin:xmax , ymin:ymax , zmin:zmax);
+FLAIR = FLAIR(xmin:xmax , ymin:ymax , zmin:zmax);
+
+MASK = MASK(xmin:xmax , ymin:ymax , zmin:zmax);
+
+%%  make space and selected points space( MADE CHANGES FOR MAKING TEXT FILES >> FIX LATER)
+ 
+[space,mask_idx,truth_idx] = make_space(T1C, FLAIR, T2,truth, MASK);
+
+ space2 = space;
+         background = find(sum(space(1:3,:))< 0.001); 
+         space(:,background) = [];
+         mask_idx(background) = [];
+         if compute_statistics
+         truth_idx(background) = [];
+         end
+
+% Remove the spatial features
+spatial_feature = 1;
+if spatial_feature ==0
+    cordinates = space(4:6,:);
+    space = space(1:3,:);
+end
+
+
+[selected_space, mask_idx] = make_selected_space(space, mask_idx, Nb_healthy,Nb_Selected );
+
+
+  t2 = tic() ;
+ [h,w,d] = size(T1C);
+%% classifiers
+
+ 
+% KNN search classifier
+   
+    kkk=k;
+    % I made a change just so  distance function would be costume to change
+    % back just change the last argument to 'euclidean'
+    %[IDX,D] = knnsearch(selected_space',space','K', kkk  ,'Distance',@dist_u);
+    [IDX,D] = knnsearch(selected_space',space','K', k ,'NSMethod','kdtree' ,'Distance','euclidean');
+
+
+    % assign labels
+    if spatial_feature ==0
+        space = [space;cordinates];
+    end
+    segmented_volume = assign_labels(IDX,D,mask_idx, space, h, w, d);
+
+    % make data-term_KNN
+
+    matrix = make_dataterm_matrix(IDX,mask_idx,space,T1C);
+    matrix = (matrix/k);
+    %energy = -log(matrix);
+    energy_base = 1 - matrix;
+
+     
+    segmented = zeros(height,width,depth);
+     segmented(xmin:xmax , ymin:ymax , zmin:zmax) = segmented_volume;
+
+ %%%% save mha file
+    mha_result_name = strrep(flair_name , 'Brain.XX.O.MR_Flair',['Seg_',type,'_',name]);
+    mha_result_path = [knn_result_save_dir,mha_result_name];
+    segmented = uint16(segmented);
+    writemetaimagefile(mha_result_path, segmented, info.PixelDimensions,info.Offset);
+
+boykov_denoised_result_save_dir =  [main_result_dir,'boykov',filesep,'Denoised',filesep,''];
+if exist(boykov_denoised_result_save_dir,'dir')==0
+    mkdir(boykov_denoised_result_save_dir)
+end
+
+%% APPLY graphcut BOYKOV JOLLY with dataterms
+ alpha = 0.001;
+
+
+ energy = alpha * energy_base;
+  beta = .0053;
+t3 = tic();
+ lf = interactiveGraphcut_withdataterms(space2,double(MASK),energy,beta);
+time_graphcut = toc(t3);
+ [h,w,d] = size(T1C);
+  lf = reshape(lf,h, w, d);
+   segmented_volume = lf ;
+
+segmented_brain = zeros(height,width,depth);
+segmented_brain(xmin:xmax , ymin:ymax , zmin:zmax) = segmented_volume;
+
+ segmented_brain(segmented_brain == 3)=4;
+ segmented_brain(segmented_brain == 1)=3;
+
+%%%%%%%%%%%% save results
+mha_result_name = strrep(flair_name , 'Brain.XX.O.MR_Flair',['Seg_',type,'_',name]);
+mha_result_path = [boykov_result_save_dir,mha_result_name];
+segmented_brain = uint16(segmented_brain);
+writemetaimagefile(mha_result_path, segmented_brain, info.PixelDimensions,info.Offset); 
+
+   
+t4 = tic();
+% apply median filter
+segmented_volume = medfilt3(segmented_volume, [3,3,3]);
+% compute statistics 
+time_medianfilter = toc(t4);
+segmented_brain = zeros(height,width,depth);
+segmented_brain(xmin:xmax , ymin:ymax , zmin:zmax) = segmented_volume;
+ segmented_brain(segmented_brain == 3)=4;
+ segmented_brain(segmented_brain == 1)=3;
+
+%%%%%%%% save results 
+mha_result_name = strrep(flair_name , 'Brain.XX.O.MR_Flair',['Seg_',type,'_',name]);
+%mha_result_name = 'Seg_brain.mha';
+mha_result_path = [boykov_denoised_result_save_dir,mha_result_name];
+segmented_brain = uint16(segmented_brain);
+writemetaimagefile(mha_result_path, segmented_brain, info.PixelDimensions,info.Offset); 

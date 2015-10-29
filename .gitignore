@@ -1,5 +1,11 @@
-*.mha
-*.pyc
 *.png
-*.fig
+*.mha
+*.nii
+*.bmp
+*.pgm
+*.txt
+*.mat
 *.jpg
+*.pyc
+*.dll
+
